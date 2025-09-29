@@ -9,6 +9,16 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 session_start();
 
+if (isset($_GET['force_delete']) && $_GET['force_delete'] === 'confirm') {
+    $setupFile = __FILE__;
+    if (@unlink($setupFile)) {
+        header('Location: admin/index.php');
+        exit;
+    } else {
+        die('Fehler: setup.php konnte nicht gelöscht werden. Bitte manuell löschen.');
+    }
+}
+
 if (file_exists('assets/config/config.php')) {
     $existingConfig = file_get_contents('assets/config/config.php');
     if (strpos($existingConfig, 'CHANGE_ME') === false) {
@@ -414,6 +424,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background: #a00000;
         }
 
+        .btn-secondary {
+            background: #666;
+            margin-top: 15px;
+        }
+
+        .btn-secondary:hover {
+            background: #555;
+        }
+
         .alert {
             padding: 15px;
             border-radius: 6px;
@@ -523,6 +542,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?php endforeach; ?>
                     </ul>
                 </div>
+
+                <?php if (!empty($success)): ?>
+                    <div class="info-box" style="margin-bottom: 20px;">
+                        <strong>ℹ️ Teilweise erfolgreich</strong>
+                        Einige Schritte wurden erfolgreich abgeschlossen. Bitte beheben Sie die oben genannten Fehler oder fahren Sie manuell fort.
+                    </div>
+                    <a href="?force_delete=confirm" class="btn btn-secondary" style="margin: 5px;" onclick="return confirm('Sind Sie sicher, dass Sie setup.php löschen möchten? Stellen Sie sicher, dass alle wichtigen Konfigurationen vorgenommen wurden.')">Verstanden, setup.php löschen und fortfahren</a>
+                <?php endif; ?>
             <?php endif; ?>
 
             <?php if (!empty($success)): ?>
