@@ -5,14 +5,10 @@
  * Führt Git Pull aus, konfiguriert config.php und leitet zum Admin-Panel weiter
  */
 
-// Fehlerausgabe für Debugging aktivieren
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-
-// Session starten für Fehlermeldungen
 session_start();
 
-// Prüfen ob bereits eingerichtet
 if (file_exists('assets/config/config.php')) {
     $existingConfig = file_get_contents('assets/config/config.php');
     if (strpos($existingConfig, 'CHANGE_ME') === false) {
@@ -23,45 +19,50 @@ if (file_exists('assets/config/config.php')) {
 $errors = [];
 $success = [];
 
-// POST-Request verarbeiten
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    // Git Pull ausführen
     $gitOutput = [];
     $gitReturnVar = 0;
     $gitBranch = $_POST['git_branch'] ?? 'release';
 
-    // Prüfen ob Git verfügbar ist
     exec('git --version 2>&1', $gitOutput, $gitReturnVar);
 
     if ($gitReturnVar === 0) {
-        // Repository klonen oder pullen
         if (!is_dir('.git')) {
-            // Neues Repository klonen
             $gitOutput = [];
             $repoUrl = 'https://github.com/EmergencyForge/intraRP.git';
 
-            if ($gitBranch === 'main') {
-                exec("git clone -b main {$repoUrl} . 2>&1", $gitOutput, $gitReturnVar);
-                $success[] = 'Repository geklont (Branch: main - experimentell)';
-            } else {
-                // Letzten Release holen
-                exec("git clone {$repoUrl} . 2>&1", $gitOutput, $gitReturnVar);
-                if ($gitReturnVar === 0) {
-                    exec('git fetch --tags 2>&1', $gitOutput, $gitReturnVar);
+            exec('git init 2>&1', $gitOutput, $gitReturnVar);
+
+            if ($gitReturnVar === 0) {
+                exec("git remote add origin {$repoUrl} 2>&1", $gitOutput, $gitReturnVar);
+
+                if ($gitBranch === 'main') {
+                    exec('git fetch origin main 2>&1', $gitOutput, $gitReturnVar);
+                    exec('git checkout -b main origin/main 2>&1', $gitOutput, $gitReturnVar);
+
+                    if ($gitReturnVar === 0) {
+                        exec('git reset --hard origin/main 2>&1', $gitOutput, $gitReturnVar);
+                        $success[] = 'Repository initialisiert (Branch: main - experimentell)';
+                    }
+                } else {
+                    exec('git fetch --tags origin 2>&1', $gitOutput, $gitReturnVar);
                     exec('git describe --tags `git rev-list --tags --max-count=1` 2>&1', $latestTag, $gitReturnVar);
+
                     if ($gitReturnVar === 0 && !empty($latestTag[0])) {
-                        exec("git checkout {$latestTag[0]} 2>&1", $gitOutput, $gitReturnVar);
-                        $success[] = 'Repository geklont (Letzter Release: ' . $latestTag[0] . ')';
+                        exec("git checkout -b release {$latestTag[0]} 2>&1", $gitOutput, $gitReturnVar);
+                        exec("git reset --hard {$latestTag[0]} 2>&1", $gitOutput, $gitReturnVar);
+                        $success[] = 'Repository initialisiert (Letzter Release: ' . $latestTag[0] . ')';
+                    } else {
+                        $errors[] = 'Konnte letzten Release-Tag nicht ermitteln.';
                     }
                 }
             }
 
-            if ($gitReturnVar !== 0) {
-                $errors[] = 'Git Clone Fehler: ' . implode('<br>', $gitOutput);
+            if ($gitReturnVar !== 0 && empty($success)) {
+                $errors[] = 'Git Fehler: ' . implode('<br>', $gitOutput);
             }
         } else {
-            // Bestehendes Repository aktualisieren
             $gitOutput = [];
 
             if ($gitBranch === 'main') {
@@ -69,7 +70,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exec('git pull origin main 2>&1', $gitOutput, $gitReturnVar);
                 $success[] = 'Git Pull erfolgreich (Branch: main - experimentell): ' . implode('<br>', $gitOutput);
             } else {
-                // Zum letzten Release wechseln
                 exec('git fetch --tags 2>&1', $gitOutput, $gitReturnVar);
                 exec('git describe --tags `git rev-list --tags --max-count=1` 2>&1', $latestTag, $gitReturnVar);
                 if ($gitReturnVar === 0 && !empty($latestTag[0])) {
@@ -88,19 +88,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Git ist nicht verfügbar. Überspringe Git Pull.';
     }
 
-    // Version aus version.json auslesen
-    $systemVersion = '0.4.4';
-    if (file_exists('admin/system/updates/version.json')) {
-        $versionData = json_decode(file_get_contents('admin/system/updates/version.json'), true);
+    $systemVersion = '1.0.0';
+    $versionFile = 'admin/system/updates/version.json';
+
+    if (file_exists($versionFile)) {
+        $versionData = json_decode(file_get_contents($versionFile), true);
         if (isset($versionData['version'])) {
-            $systemVersion = ltrim($versionData['version'], 'v'); // 'v' am Anfang entfernen
+            $systemVersion = ltrim($versionData['version'], 'v');
             $success[] = 'Version aus version.json gelesen: ' . $systemVersion;
+        } else {
+            $errors[] = 'version.json gefunden, aber "version" Feld fehlt. Verwende Standardversion.';
         }
     } else {
-        $errors[] = 'version.json nicht gefunden. Verwende Standardversion.';
+        $errors[] = "version.json nicht gefunden unter {$versionFile}. Verwende Standardversion {$systemVersion}.";
     }
 
-    // Konfigurationsdaten aus Formular holen
     $config = [
         'SYSTEM_NAME' => trim($_POST['system_name'] ?? 'intraRP'),
         'SYSTEM_VERSION' => $systemVersion,
@@ -119,7 +121,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'BASE_PATH' => trim($_POST['base_path'] ?? '/'),
     ];
 
-    // .env Daten
     $envConfig = [
         'DB_HOST' => trim($_POST['db_host'] ?? 'localhost'),
         'DB_USER' => trim($_POST['db_user'] ?? 'root'),
@@ -129,7 +130,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'DISCORD_CLIENT_SECRET' => trim($_POST['discord_client_secret'] ?? ''),
     ];
 
-    // Validierung
     if (empty($config['SYSTEM_URL'])) {
         $errors[] = 'System-URL ist erforderlich!';
     }
@@ -146,15 +146,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Discord Client Secret ist erforderlich!';
     }
 
-    // Config-Datei erstellen wenn keine Fehler
     if (empty($errors)) {
 
-        // Verzeichnis erstellen falls nicht vorhanden
         if (!is_dir('assets/config')) {
             mkdir('assets/config', 0755, true);
         }
 
-        // Config-Inhalt generieren
         $configContent = "<?php\n";
         $configContent .= "// BASIS DATEN\n";
         $configContent .= "define('SYSTEM_NAME', '{$config['SYSTEM_NAME']}'); // Eigenname des Intranets\n";
@@ -177,11 +174,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $configContent .= "define('LANG', 'de'); // Sprache des Systems (de = Deutsch, en = Englisch) // AKTUELL OHNE FUNKTION!\n";
         $configContent .= "define('BASE_PATH', '{$config['BASE_PATH']}'); // Basis-Pfad des Systems (z.B. /intraRP/ für https://domain.de/intraRP/)";
 
-        // Config-Datei schreiben
         if (file_put_contents('assets/config/config.php', $configContent)) {
             $success[] = 'Konfigurationsdatei erfolgreich erstellt!';
 
-            // .env Datei erstellen
             $envContent = "DB_HOST={$envConfig['DB_HOST']}\n";
             $envContent .= "DB_USER={$envConfig['DB_USER']}\n";
             $envContent .= "DB_PASS={$envConfig['DB_PASS']}\n";
@@ -195,11 +190,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = 'Fehler beim Schreiben der .env Datei. Prüfen Sie die Schreibrechte!';
             }
 
-            // Composer install ausführen
             $composerOutput = [];
             $composerReturnVar = 0;
 
-            // Prüfen ob Composer verfügbar ist
             exec('composer --version 2>&1', $composerOutput, $composerReturnVar);
 
             if ($composerReturnVar === 0) {
@@ -215,12 +208,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = 'Composer ist nicht verfügbar. Bitte führen Sie "composer install" manuell aus.';
             }
 
-            // Setup-Datei löschen und weiterleiten
             $setupFile = __FILE__;
 
-            // Nur weiterleiten wenn keine kritischen Fehler aufgetreten sind
             if (empty($errors)) {
-                // Weiterleitung vorbereiten
                 header('refresh:3;url=admin/index.php');
 
                 echo '<!DOCTYPE html>
@@ -247,7 +237,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </body>
 </html>';
 
-                // Setup-Datei löschen
                 @unlink($setupFile);
                 exit;
             }
@@ -274,7 +263,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #afafafff;
             min-height: 100vh;
             padding: 20px;
         }
@@ -522,7 +511,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="container">
         <div class="header">
             <h1>intraRP Setup</h1>
-            <p>Konfigurieren Sie Ihr Intranet-System</p>
         </div>
 
         <div class="content">
@@ -559,9 +547,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <span>
                                 <div>
                                     <strong>Letzter Release</strong>
-                                    <span class="warning-badge" style="background: #4caf50;">EMPFOHLEN</span>
                                 </div>
-                                <small>Stabile Version - empfohlen für Produktivumgebungen</small>
+                                <small>Stabile Version</small>
                             </span>
                         </label>
                         <label>
@@ -571,7 +558,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <strong>Main Branch</strong>
                                     <span class="warning-badge">EXPERIMENTELL</span>
                                 </div>
-                                <small>Neueste Entwicklungsversion - kann instabil sein</small>
+                                <small>Neueste Entwicklungsversion &middot; kann instabil sein</small>
                             </span>
                         </label>
                     </div>
@@ -744,7 +731,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     Alle hier eingegebenen Werte können später in den Dateien <code>/assets/config/config.php</code> und <code>/.env</code> manuell angepasst werden.
                 </div>
 
-                <button type="submit" class="btn">Setup durchführen</button>
+                <button type="submit" class="btn">System aufsetzen</button>
             </form>
         </div>
     </div>
