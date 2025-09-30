@@ -223,16 +223,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         }
 
         $configContent = "<?php\n";
-        $configContent .= "if (session_status() === PHP_SESSION_NONE) {\n";
-        $configContent .= "    session_start();\n";
-        $configContent .= "}\n";
         $configContent .= "// Autoloader\n";
         $configContent .= "require_once __DIR__ . '/../../vendor/autoload.php';\n";
         $configContent .= "use App\\Auth\\Permissions;\n";
+        $configContent .= "if (session_status() === PHP_SESSION_NONE) {\n";
         $configContent .= "// Initialisiere Permissions für eingeloggte User\n";
         $configContent .= "if (isset(\$_SESSION['userid']) && !isset(\$_SESSION['permissions'])) {\n";
         $configContent .= "    require_once __DIR__ . '/database.php';\n";
         $configContent .= "    \$_SESSION['permissions'] = Permissions::retrieveFromDatabase(\$pdo, \$_SESSION['userid']);\n";
+        $configContent .= "}\n";
         $configContent .= "}\n";
         $configContent .= "// BASIS DATEN\n";
         $configContent .= "define('SYSTEM_NAME', '{$config['SYSTEM_NAME']}');\n";
