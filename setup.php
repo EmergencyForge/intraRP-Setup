@@ -165,6 +165,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         logError("version.json nicht gefunden: {$versionFile}");
     }
 
+    function generateApiKey($length = 64)
+    {
+        return bin2hex(random_bytes($length / 2));
+    }
+
+    $apiKey = generateApiKey();
+
     $config = [
         'SYSTEM_NAME' => trim($_POST['system_name'] ?? 'intraRP'),
         'SYSTEM_VERSION' => $systemVersion,
@@ -180,6 +187,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         'CHAR_ID' => isset($_POST['char_id']) ? 'true' : 'false',
         'ENOTF_PREREG' => isset($_POST['enotf_prereg']) ? 'true' : 'false',
         'BASE_PATH' => trim($_POST['base_path'] ?? '/'),
+        'API_KEY' => $apiKey,
     ];
 
     $envConfig = [
@@ -234,6 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         $configContent .= "}\n";
         $configContent .= "}\n";
         $configContent .= "// BASIS DATEN\n";
+        $configContent .= "define('API_KEY', '{$config['API_KEY']}');\n";
         $configContent .= "define('SYSTEM_NAME', '{$config['SYSTEM_NAME']}');\n";
         $configContent .= "define('SYSTEM_VERSION', '{$config['SYSTEM_VERSION']}');\n";
         $configContent .= "define('SYSTEM_COLOR', '{$config['SYSTEM_COLOR']}');\n";
