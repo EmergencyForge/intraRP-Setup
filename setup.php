@@ -172,6 +172,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
 
     $apiKey = generateApiKey();
 
+    $enotfUsePin = isset($_POST['enotf_use_pin']);
+    $enotfPin = trim($_POST['enotf_pin'] ?? '');
+
     $config = [
         'SYSTEM_NAME' => trim($_POST['system_name'] ?? 'intraRP'),
         'SYSTEM_VERSION' => $systemVersion,
@@ -186,6 +189,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         'RP_ZIP' => trim($_POST['rp_zip'] ?? '1337'),
         'CHAR_ID' => isset($_POST['char_id']) ? 'true' : 'false',
         'ENOTF_PREREG' => isset($_POST['enotf_prereg']) ? 'true' : 'false',
+        'ENOTF_USE_PIN' => $enotfUsePin ? 'true' : 'false',
+        'ENOTF_PIN' => $enotfUsePin ? $enotfPin : '',
         'BASE_PATH' => trim($_POST['base_path'] ?? '/'),
         'API_KEY' => $apiKey,
     ];
@@ -223,6 +228,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         $errors[] = 'Custom Branch-Name ist erforderlich!';
         logError('Validierung fehlgeschlagen: Custom Branch-Name fehlt');
     }
+    if ($enotfUsePin) {
+        if (empty($enotfPin)) {
+            $errors[] = 'eNOTF PIN ist erforderlich, wenn PIN-Funktion aktiviert ist!';
+            logError('Validierung fehlgeschlagen: eNOTF PIN fehlt');
+        } elseif (!preg_match('/^\d{4,6}$/', $enotfPin)) {
+            $errors[] = 'eNOTF PIN muss aus 4-6 Zahlen bestehen!';
+            logError('Validierung fehlgeschlagen: eNOTF PIN ungültiges Format');
+        }
+    }
 
     if (empty($errors)) {
 
@@ -259,6 +273,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         $configContent .= "// FUNKTIONEN\n";
         $configContent .= "define('CHAR_ID', {$config['CHAR_ID']});\n";
         $configContent .= "define('ENOTF_PREREG', {$config['ENOTF_PREREG']});\n";
+        $configContent .= "define('ENOTF_USE_PIN', {$config['ENOTF_USE_PIN']});\n";
+        $configContent .= "define('ENOTF_PIN', '{$config['ENOTF_PIN']}');\n";
         $configContent .= "define('LANG', 'de');\n";
         $configContent .= "define('BASE_PATH', '{$config['BASE_PATH']}');";
 
@@ -755,6 +771,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
             background: #a00000;
             border-color: #a00000;
         }
+
+        .pin-input-wrapper {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border: 2px solid #e0e0e0;
+            display: none;
+        }
+
+        .pin-input-wrapper.active {
+            display: block;
+        }
+
+        .pin-input-wrapper input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 1.2em;
+            text-align: center;
+            letter-spacing: 0.3em;
+            font-family: monospace;
+        }
+
+        .pin-input-wrapper input:focus {
+            outline: none;
+            border-color: #d10000;
+        }
+
+        .pin-input-wrapper small {
+            display: block;
+            margin-top: 8px;
+            color: #666;
+            text-align: center;
+        }
     </style>
 </head>
 
@@ -1021,6 +1073,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
                         <label for="enotf_prereg">eNOTF Voranmeldungssystem verwenden</label>
                     </div>
                 </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="enotf_use_pin" name="enotf_use_pin">
+                        <label for="enotf_use_pin">eNOTF PIN-Schutz aktivieren</label>
+                    </div>
+                    <div class="pin-input-wrapper" id="pin_input_wrapper">
+                        <input type="text" id="enotf_pin" name="enotf_pin" placeholder="1234" pattern="\d{4,6}" maxlength="6" inputmode="numeric">
+                        <small>PIN muss aus 4-6 Zahlen bestehen</small>
+                    </div>
+                </div>
+
+                <script>
+                    const pinCheckbox = document.getElementById('enotf_use_pin');
+                    const pinWrapper = document.getElementById('pin_input_wrapper');
+                    const pinInput = document.getElementById('enotf_pin');
+
+                    pinCheckbox.addEventListener('change', function() {
+                        if (this.checked) {
+                            pinWrapper.classList.add('active');
+                            pinInput.focus();
+                        } else {
+                            pinWrapper.classList.remove('active');
+                            pinInput.value = '';
+                        }
+                    });
+
+                    pinInput.addEventListener('input', function() {
+                        this.value = this.value.replace(/\D/g, '').substring(0, 6);
+                    });
+                </script>
 
                 <div class="section-title">Datenbank-Konfiguration</div>
 
