@@ -148,23 +148,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         }
     }
 
-    $systemVersion = '1.0.0';
-    $versionFile = 'admin/system/updates/version.json';
-
-    if (file_exists($versionFile)) {
-        $versionData = json_decode(file_get_contents($versionFile), true);
-        if (isset($versionData['version'])) {
-            $systemVersion = ltrim($versionData['version'], 'v');
-            $success[] = 'Version aus version.json gelesen: ' . $systemVersion;
-        } else {
-            $errors[] = 'version.json gefunden, aber "version" Feld fehlt. Verwende Standardversion.';
-            logError('version.json: "version" Feld nicht gefunden');
-        }
-    } else {
-        $errors[] = "version.json nicht gefunden unter {$versionFile}. Verwende Standardversion {$systemVersion}.";
-        logError("version.json nicht gefunden: {$versionFile}");
-    }
-
     function generateApiKey($length = 64)
     {
         return bin2hex(random_bytes($length / 2));
@@ -177,7 +160,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
 
     $config = [
         'SYSTEM_NAME' => trim($_POST['system_name'] ?? 'intraRP'),
-        'SYSTEM_VERSION' => $systemVersion,
         'SYSTEM_COLOR' => trim($_POST['system_color'] ?? '#d10000'),
         'SYSTEM_URL' => trim($_POST['system_url'] ?? ''),
         'SYSTEM_LOGO' => trim($_POST['system_logo'] ?? '/assets/img/defaultLogo.webp'),
@@ -258,7 +240,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         $configContent .= "// BASIS DATEN\n";
         $configContent .= "define('API_KEY', '{$config['API_KEY']}');\n";
         $configContent .= "define('SYSTEM_NAME', '{$config['SYSTEM_NAME']}');\n";
-        $configContent .= "define('SYSTEM_VERSION', '{$config['SYSTEM_VERSION']}');\n";
         $configContent .= "define('SYSTEM_COLOR', '{$config['SYSTEM_COLOR']}');\n";
         $configContent .= "define('SYSTEM_URL', '{$config['SYSTEM_URL']}');\n";
         $configContent .= "define('SYSTEM_LOGO', '{$config['SYSTEM_LOGO']}');\n";
