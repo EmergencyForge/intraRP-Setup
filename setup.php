@@ -173,6 +173,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         'ENOTF_PREREG' => isset($_POST['enotf_prereg']) ? 'true' : 'false',
         'ENOTF_USE_PIN' => $enotfUsePin ? 'true' : 'false',
         'ENOTF_PIN' => $enotfUsePin ? $enotfPin : '',
+        'REGISTRATION_MODE' => trim($_POST['registration_mode'] ?? 'open'),
         'BASE_PATH' => trim($_POST['base_path'] ?? '/'),
         'API_KEY' => $apiKey,
     ];
@@ -220,6 +221,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         }
     }
 
+    $validRegistrationModes = ['open', 'code', 'closed'];
+    if (!in_array($config['REGISTRATION_MODE'], $validRegistrationModes)) {
+        $errors[] = 'Ungültiger Registrierungsmodus! Erlaubt sind: open, code, closed';
+        logError('Validierung fehlgeschlagen: Ungültiger Registrierungsmodus - ' . $config['REGISTRATION_MODE']);
+    }
+
     if (empty($errors)) {
 
         if (!is_dir('assets/config')) {
@@ -256,6 +263,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         $configContent .= "define('ENOTF_PREREG', {$config['ENOTF_PREREG']});\n";
         $configContent .= "define('ENOTF_USE_PIN', {$config['ENOTF_USE_PIN']});\n";
         $configContent .= "define('ENOTF_PIN', '{$config['ENOTF_PIN']}');\n";
+        $configContent .= "define('REGISTRATION_MODE', '{$config['REGISTRATION_MODE']}');\n";
         $configContent .= "define('LANG', 'de');\n";
         $configContent .= "define('BASE_PATH', '{$config['BASE_PATH']}');";
 
@@ -444,7 +452,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         }
 
         .form-group input[type="text"],
-        .form-group input[type="url"] {
+        .form-group input[type="url"],
+        .form-group select {
             width: 100%;
             padding: 12px;
             border: 2px solid #e0e0e0;
@@ -453,9 +462,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
             transition: border-color 0.3s;
         }
 
-        .form-group input:focus {
+        .form-group input:focus,
+        .form-group select:focus {
             outline: none;
             border-color: #d10000;
+        }
+
+        .form-group select {
+            background-color: white;
+            cursor: pointer;
         }
 
         .form-group small {
@@ -1085,6 +1100,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
                         this.value = this.value.replace(/\D/g, '').substring(0, 6);
                     });
                 </script>
+
+                <div class="form-group">
+                    <label for="registration_mode">Registrierungsmodus</label>
+                    <select id="registration_mode" name="registration_mode">
+                        <option value="open" selected>Offen - Jeder kann sich registrieren</option>
+                        <option value="code">Code - Nur mit Registrierungscode</option>
+                        <option value="closed">Geschlossen - Keine Registrierung möglich</option>
+                    </select>
+                    <small>Legt fest, wer sich im System registrieren kann</small>
+                </div>
 
                 <div class="section-title">Datenbank-Konfiguration</div>
 
