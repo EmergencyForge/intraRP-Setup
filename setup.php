@@ -31,7 +31,7 @@ function logError($message)
 if (isset($_GET['force_delete']) && $_GET['force_delete'] === 'confirm') {
     $setupFile = __FILE__;
     if (@unlink($setupFile)) {
-        header('Location: admin/index.php');
+        header('Location: index.php');
         exit;
     } else {
         die('Fehler: setup.php konnte nicht gelöscht werden. Bitte manuell löschen.');
@@ -41,7 +41,7 @@ if (isset($_GET['force_delete']) && $_GET['force_delete'] === 'confirm') {
 if (isset($_GET['composer_confirmed']) && $_GET['composer_confirmed'] === '1') {
     $setupFile = __FILE__;
     @unlink($setupFile);
-    header('Location: admin/index.php');
+    header('Location: index.php');
     exit;
 }
 
@@ -345,7 +345,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
                     exit;
                 }
 
-                header('refresh:3;url=admin/index.php');
+                header('refresh:3;url=index.php');
 
                 echo '<!DOCTYPE html>
 <html lang="de">
