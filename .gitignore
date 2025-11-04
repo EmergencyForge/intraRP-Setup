@@ -1,0 +1,5 @@
+screenshots/
+setup_error.log
+assets/
+.env
+vendor/
