@@ -2,7 +2,7 @@
 
 /**
  * intraRP Setup Script
- * Führt Git Pull aus, konfiguriert config.php und leitet zum Admin-Panel weiter
+ * Führt Git Pull aus, erstellt .env Datei und leitet zum Admin-Panel weiter
  */
 
 error_reporting(E_ALL);
