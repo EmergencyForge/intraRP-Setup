@@ -2,7 +2,7 @@
 
 /**
  * intraRP Setup Script
- * Führt Git Pull aus, konfiguriert config.php und leitet zum Admin-Panel weiter
+ * Führt Git Pull aus, erstellt .env Datei und leitet zum Admin-Panel weiter
  */
 
 error_reporting(E_ALL);
@@ -43,13 +43,6 @@ if (isset($_GET['composer_confirmed']) && $_GET['composer_confirmed'] === '1') {
     @unlink($setupFile);
     header('Location: index.php');
     exit;
-}
-
-if (file_exists('assets/config/config.php')) {
-    $existingConfig = file_get_contents('assets/config/config.php');
-    if (strpos($existingConfig, 'CHANGE_ME') === false) {
-        die('Setup wurde bereits durchgeführt. Bitte löschen Sie diese Datei manuell.');
-    }
 }
 
 $errors = [];
@@ -148,55 +141,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         }
     }
 
-    function generateApiKey($length = 64)
-    {
-        return bin2hex(random_bytes($length / 2));
+    // Sanitize and escape environment variables to prevent injection attacks
+    // Follows .env file format standards with proper quoting
+    function sanitizeEnvValue($value) {
+        // Remove any newline characters that could break .env file format
+        $value = str_replace(["\r", "\n"], '', $value);
+        // Trim whitespace
+        $value = trim($value);
+        return $value;
     }
 
-    $apiKey = generateApiKey();
-
-    $enotfUsePin = isset($_POST['enotf_use_pin']);
-    $enotfPin = trim($_POST['enotf_pin'] ?? '');
-    $enotfRequireUserAuth = isset($_POST['enotf_require_user_auth']);
-
-    $config = [
-        'SYSTEM_NAME' => trim($_POST['system_name'] ?? 'intraRP'),
-        'SYSTEM_COLOR' => trim($_POST['system_color'] ?? '#d10000'),
-        'SYSTEM_URL' => trim($_POST['system_url'] ?? ''),
-        'SYSTEM_LOGO' => trim($_POST['system_logo'] ?? '/assets/img/defaultLogo.webp'),
-        'META_IMAGE_URL' => trim($_POST['meta_image_url'] ?? ''),
-        'SERVER_NAME' => trim($_POST['server_name'] ?? ''),
-        'SERVER_CITY' => trim($_POST['server_city'] ?? 'Musterstadt'),
-        'RP_ORGTYPE' => trim($_POST['rp_orgtype'] ?? 'Berufsfeuerwehr'),
-        'RP_STREET' => trim($_POST['rp_street'] ?? 'Musterweg 0815'),
-        'RP_ZIP' => trim($_POST['rp_zip'] ?? '1337'),
-        'CHAR_ID' => isset($_POST['char_id']) ? 'true' : 'false',
-        'ENOTF_PREREG' => isset($_POST['enotf_prereg']) ? 'true' : 'false',
-        'ENOTF_USE_PIN' => $enotfUsePin ? 'true' : 'false',
-        'ENOTF_PIN' => $enotfUsePin ? $enotfPin : '',
-        'ENOTF_REQUIRE_USER_AUTH' => $enotfRequireUserAuth ? 'true' : 'false',
-        'REGISTRATION_MODE' => trim($_POST['registration_mode'] ?? 'open'),
-        'BASE_PATH' => trim($_POST['base_path'] ?? '/'),
-        'API_KEY' => $apiKey,
-    ];
+    // Format value for .env file with proper quoting and escaping
+    function formatEnvValue($value) {
+        // Sanitize first
+        $value = sanitizeEnvValue($value);
+        // Escape backslashes and double quotes
+        $value = str_replace(['\\', '"'], ['\\\\', '\\"'], $value);
+        // Wrap in double quotes for safety
+        return '"' . $value . '"';
+    }
 
     $envConfig = [
-        'DB_HOST' => trim($_POST['db_host'] ?? 'localhost'),
-        'DB_USER' => trim($_POST['db_user'] ?? 'root'),
-        'DB_PASS' => trim($_POST['db_pass'] ?? ''),
-        'DB_NAME' => trim($_POST['db_name'] ?? 'intrarp'),
-        'DISCORD_CLIENT_ID' => trim($_POST['discord_client_id'] ?? ''),
-        'DISCORD_CLIENT_SECRET' => trim($_POST['discord_client_secret'] ?? ''),
+        'DB_HOST' => sanitizeEnvValue($_POST['db_host'] ?? 'localhost'),
+        'DB_USER' => sanitizeEnvValue($_POST['db_user'] ?? 'root'),
+        'DB_PASS' => sanitizeEnvValue($_POST['db_pass'] ?? ''),
+        'DB_NAME' => sanitizeEnvValue($_POST['db_name'] ?? 'intrarp'),
+        'DISCORD_CLIENT_ID' => sanitizeEnvValue($_POST['discord_client_id'] ?? ''),
+        'DISCORD_CLIENT_SECRET' => sanitizeEnvValue($_POST['discord_client_secret'] ?? ''),
     ];
 
-    if (empty($config['SYSTEM_URL'])) {
-        $errors[] = 'System-URL ist erforderlich!';
-        logError('Validierung fehlgeschlagen: System-URL fehlt');
-    }
-    if (empty($config['SERVER_NAME'])) {
-        $errors[] = 'Server-Name ist erforderlich!';
-        logError('Validierung fehlgeschlagen: Server-Name fehlt');
-    }
     if (empty($envConfig['DB_NAME'])) {
         $errors[] = 'Datenbank-Name ist erforderlich!';
         logError('Validierung fehlgeschlagen: Datenbank-Name fehlt');
@@ -213,80 +186,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         $errors[] = 'Custom Branch-Name ist erforderlich!';
         logError('Validierung fehlgeschlagen: Custom Branch-Name fehlt');
     }
-    if ($enotfUsePin) {
-        if (empty($enotfPin)) {
-            $errors[] = 'eNOTF PIN ist erforderlich, wenn PIN-Funktion aktiviert ist!';
-            logError('Validierung fehlgeschlagen: eNOTF PIN fehlt');
-        } elseif (!preg_match('/^\d{4,6}$/', $enotfPin)) {
-            $errors[] = 'eNOTF PIN muss aus 4-6 Zahlen bestehen!';
-            logError('Validierung fehlgeschlagen: eNOTF PIN ungültiges Format');
-        }
-    }
-
-    $validRegistrationModes = ['open', 'code', 'closed'];
-    if (!in_array($config['REGISTRATION_MODE'], $validRegistrationModes)) {
-        $errors[] = 'Ungültiger Registrierungsmodus! Erlaubt sind: open, code, closed';
-        logError('Validierung fehlgeschlagen: Ungültiger Registrierungsmodus - ' . $config['REGISTRATION_MODE']);
-    }
 
     if (empty($errors)) {
 
-        if (!is_dir('assets/config')) {
-            mkdir('assets/config', 0755, true);
-        }
+        $envContent = "DB_HOST=" . formatEnvValue($envConfig['DB_HOST']) . "\n";
+        $envContent .= "DB_USER=" . formatEnvValue($envConfig['DB_USER']) . "\n";
+        $envContent .= "DB_PASS=" . formatEnvValue($envConfig['DB_PASS']) . "\n";
+        $envContent .= "DB_NAME=" . formatEnvValue($envConfig['DB_NAME']) . "\n\n";
+        $envContent .= "DISCORD_CLIENT_ID=" . formatEnvValue($envConfig['DISCORD_CLIENT_ID']) . "\n";
+        $envContent .= "DISCORD_CLIENT_SECRET=" . formatEnvValue($envConfig['DISCORD_CLIENT_SECRET']);
 
-        $configContent = "<?php\n";
-        $configContent .= "// Autoloader\n";
-        $configContent .= "require_once __DIR__ . '/../../vendor/autoload.php';\n";
-        $configContent .= "use App\\Auth\\Permissions;\n";
-        $configContent .= "if (session_status() === PHP_SESSION_NONE) {\n";
-        $configContent .= "// Initialisiere Permissions für eingeloggte User\n";
-        $configContent .= "if (isset(\$_SESSION['userid']) && !isset(\$_SESSION['permissions'])) {\n";
-        $configContent .= "    require_once __DIR__ . '/database.php';\n";
-        $configContent .= "    \$_SESSION['permissions'] = Permissions::retrieveFromDatabase(\$pdo, \$_SESSION['userid']);\n";
-        $configContent .= "}\n";
-        $configContent .= "}\n";
-        $configContent .= "// BASIS DATEN\n";
-        $configContent .= "define('API_KEY', '{$config['API_KEY']}');\n";
-        $configContent .= "define('SYSTEM_NAME', '{$config['SYSTEM_NAME']}');\n";
-        $configContent .= "define('SYSTEM_COLOR', '{$config['SYSTEM_COLOR']}');\n";
-        $configContent .= "define('SYSTEM_URL', '{$config['SYSTEM_URL']}');\n";
-        $configContent .= "define('SYSTEM_LOGO', '{$config['SYSTEM_LOGO']}');\n";
-        $configContent .= "define('META_IMAGE_URL', '{$config['META_IMAGE_URL']}');\n";
-        $configContent .= "// SERVER DATEN\n";
-        $configContent .= "define('SERVER_NAME', '{$config['SERVER_NAME']}');\n";
-        $configContent .= "define('SERVER_CITY', '{$config['SERVER_CITY']}');\n";
-        $configContent .= "// RP DATEN\n";
-        $configContent .= "define('RP_ORGTYPE', '{$config['RP_ORGTYPE']}');\n";
-        $configContent .= "define('RP_STREET', '{$config['RP_STREET']}');\n";
-        $configContent .= "define('RP_ZIP', '{$config['RP_ZIP']}');\n";
-        $configContent .= "// FUNKTIONEN\n";
-        $configContent .= "define('CHAR_ID', {$config['CHAR_ID']});\n";
-        $configContent .= "define('ENOTF_PREREG', {$config['ENOTF_PREREG']});\n";
-        $configContent .= "define('ENOTF_USE_PIN', {$config['ENOTF_USE_PIN']});\n";
-        $configContent .= "define('ENOTF_PIN', '{$config['ENOTF_PIN']}');\n";
-        $configContent .= "// Wird eine Registrierung/Anmeldung im Hauptsystem für den Zugang zum eNOTF vorausgesetzt? (true = ja, false = nein)\n";
-        $configContent .= "define('ENOTF_REQUIRE_USER_AUTH', {$config['ENOTF_REQUIRE_USER_AUTH']});\n";
-        $configContent .= "define('REGISTRATION_MODE', '{$config['REGISTRATION_MODE']}');\n";
-        $configContent .= "define('LANG', 'de');\n";
-        $configContent .= "define('BASE_PATH', '{$config['BASE_PATH']}');";
-
-        if (file_put_contents('assets/config/config.php', $configContent)) {
-            $success[] = 'Konfigurationsdatei erfolgreich erstellt!';
-
-            $envContent = "DB_HOST={$envConfig['DB_HOST']}\n";
-            $envContent .= "DB_USER={$envConfig['DB_USER']}\n";
-            $envContent .= "DB_PASS={$envConfig['DB_PASS']}\n";
-            $envContent .= "DB_NAME={$envConfig['DB_NAME']}\n\n";
-            $envContent .= "DISCORD_CLIENT_ID={$envConfig['DISCORD_CLIENT_ID']}\n";
-            $envContent .= "DISCORD_CLIENT_SECRET={$envConfig['DISCORD_CLIENT_SECRET']}";
-
-            if (file_put_contents('.env', $envContent)) {
-                $success[] = '.env Datei erfolgreich erstellt!';
-            } else {
-                $errors[] = 'Fehler beim Schreiben der .env Datei. Prüfen Sie die Schreibrechte!';
-                logError('Fehler beim Schreiben der .env Datei - Schreibrechte prüfen');
-            }
+        if (file_put_contents('.env', $envContent)) {
+            $success[] = '.env Datei erfolgreich erstellt!';
 
             $composerOutput = [];
             $composerReturnVar = 0;
@@ -387,8 +298,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
                 exit;
             }
         } else {
-            $errors[] = 'Fehler beim Schreiben der Konfigurationsdatei. Prüfen Sie die Schreibrechte!';
-            logError('Fehler beim Schreiben der config.php - Schreibrechte prüfen');
+            $errors[] = 'Fehler beim Schreiben der .env Datei. Prüfen Sie die Schreibrechte!';
+            logError('Fehler beim Schreiben der .env Datei - Schreibrechte prüfen');
         }
     }
 }
@@ -972,161 +883,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
                     <?php endif; ?>
                 </script>
 
-                <div class="section-title">Basis-Daten</div>
-
-                <div class="form-group">
-                    <label for="system_name">System-Name</label>
-                    <input type="text" id="system_name" name="system_name" value="intraRP" required>
-                    <small>Eigenname des Intranets</small>
-                </div>
-
-                <div class="form-group">
-                    <label for="system_url">System-URL *</label>
-                    <input type="url" id="system_url" name="system_url" placeholder="https://example.com" required>
-                    <small>Domain des Systems (mit https://)</small>
-                </div>
-
-                <div class="form-group">
-                    <label for="system_color">System-Farbe</label>
-                    <div class="color-picker-wrapper">
-                        <input type="color" id="system_color_picker" value="#d10000">
-                        <input type="text" id="system_color" name="system_color" value="#d10000" pattern="^#[0-9A-Fa-f]{6}$">
-                    </div>
-                    <small>Hauptfarbe des Systems (Hex-Code)</small>
-                </div>
-
-                <script>
-                    const colorPicker = document.getElementById('system_color_picker');
-                    const colorInput = document.getElementById('system_color');
-
-                    colorPicker.addEventListener('input', function() {
-                        colorInput.value = this.value;
-                    });
-
-                    colorInput.addEventListener('input', function() {
-                        if (/^#[0-9A-Fa-f]{6}$/.test(this.value)) {
-                            colorPicker.value = this.value;
-                        }
-                    });
-                </script>
-
-                <div class="form-group">
-                    <label for="system_logo">System-Logo</label>
-                    <input type="text" id="system_logo" name="system_logo" value="/assets/img/defaultLogo.webp">
-                    <small>Pfad oder URL zum Logo</small>
-                </div>
-
-                <div class="form-group">
-                    <label for="meta_image_url">Meta-Bild URL</label>
-                    <input type="url" id="meta_image_url" name="meta_image_url" placeholder="https://example.com/preview.jpg">
-                    <small>Bild für Link-Vorschau (vollständige URL)</small>
-                </div>
-
-                <div class="section-title">Server-Daten</div>
-
-                <div class="form-group">
-                    <label for="server_name">Server-Name *</label>
-                    <input type="text" id="server_name" name="server_name" required>
-                    <small>Name des Roleplay-Servers</small>
-                </div>
-
-                <div class="form-group">
-                    <label for="server_city">Stadt</label>
-                    <input type="text" id="server_city" name="server_city" value="Musterstadt">
-                    <small>Stadt in der der Server spielt</small>
-                </div>
-
-                <div class="section-title">Roleplay-Daten</div>
-
-                <div class="form-group">
-                    <label for="rp_orgtype">Organisationstyp</label>
-                    <input type="text" id="rp_orgtype" name="rp_orgtype" value="Berufsfeuerwehr">
-                    <small>Art/Name der Organisation</small>
-                </div>
-
-                <div class="form-group">
-                    <label for="rp_street">Straße</label>
-                    <input type="text" id="rp_street" name="rp_street" value="Musterweg 0815">
-                    <small>Straße der Organisation</small>
-                </div>
-
-                <div class="form-group">
-                    <label for="rp_zip">Postleitzahl</label>
-                    <input type="text" id="rp_zip" name="rp_zip" value="1337">
-                    <small>PLZ der Organisation</small>
-                </div>
-
-                <div class="section-title">Funktionen & Einstellungen</div>
-
-                <div class="form-group">
-                    <label for="base_path">Basis-Pfad</label>
-                    <input type="text" id="base_path" name="base_path" value="/">
-                    <small>Basis-Pfad des Systems (z.B. <code>/intraRP/</code> für https://domain.de/intraRP/)</small>
-                </div>
-
-                <div class="form-group">
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="char_id" name="char_id" checked>
-                        <label for="char_id">Eindeutige Charakter-ID verwenden</label>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="enotf_prereg" name="enotf_prereg" checked>
-                        <label for="enotf_prereg">eNOTF Voranmeldungssystem verwenden</label>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="enotf_use_pin" name="enotf_use_pin">
-                        <label for="enotf_use_pin">eNOTF PIN-Schutz aktivieren</label>
-                    </div>
-                    <div class="pin-input-wrapper" id="pin_input_wrapper">
-                        <input type="text" id="enotf_pin" name="enotf_pin" placeholder="1234" pattern="\d{4,6}" maxlength="6" inputmode="numeric">
-                        <small>PIN muss aus 4-6 Zahlen bestehen</small>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="enotf_require_user_auth" name="enotf_require_user_auth">
-                        <label for="enotf_require_user_auth">Benutzerauthentifizierung für eNOTF erforderlich</label>
-                    </div>
-                    <small class="indented">Wird eine Registrierung/Anmeldung im Hauptsystem für den Zugang zum eNOTF vorausgesetzt?</small>
-                </div>
-
-                <script>
-                    const pinCheckbox = document.getElementById('enotf_use_pin');
-                    const pinWrapper = document.getElementById('pin_input_wrapper');
-                    const pinInput = document.getElementById('enotf_pin');
-
-                    pinCheckbox.addEventListener('change', function() {
-                        if (this.checked) {
-                            pinWrapper.classList.add('active');
-                            pinInput.focus();
-                        } else {
-                            pinWrapper.classList.remove('active');
-                            pinInput.value = '';
-                        }
-                    });
-
-                    pinInput.addEventListener('input', function() {
-                        this.value = this.value.replace(/\D/g, '').substring(0, 6);
-                    });
-                </script>
-
-                <div class="form-group">
-                    <label for="registration_mode">Registrierungsmodus</label>
-                    <select id="registration_mode" name="registration_mode">
-                        <option value="open" selected>Offen - Jeder kann sich registrieren</option>
-                        <option value="code">Code - Nur mit Registrierungscode</option>
-                        <option value="closed">Geschlossen - Keine Registrierung möglich</option>
-                    </select>
-                    <small>Legt fest, wer sich im System registrieren kann</small>
-                </div>
-
                 <div class="section-title">Datenbank-Konfiguration</div>
 
                 <div class="form-group">
@@ -1196,7 +952,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
 
                 <div class="info-box">
                     <strong>ℹ️ Hinweis:</strong>
-                    Alle hier eingegebenen Werte können später in den Dateien <code>/assets/config/config.php</code> und <code>/.env</code> manuell angepasst werden.
+                    Die hier eingegebenen Datenbank- und Discord-Credentials werden in der <code>/.env</code> Datei gespeichert und können später dort angepasst werden. Alle weiteren System-Einstellungen (z.B. System-Name, Farben, Server-Informationen) werden nach dem Setup über das Admin-Panel in der Datenbank konfiguriert.
                 </div>
 
                 <button type="submit" class="btn" <?php echo !$canProceed ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''; ?>>Setup durchführen</button>
