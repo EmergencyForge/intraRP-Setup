@@ -157,6 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
 
     $enotfUsePin = isset($_POST['enotf_use_pin']);
     $enotfPin = trim($_POST['enotf_pin'] ?? '');
+    $enotfRequireUserAuth = isset($_POST['enotf_require_user_auth']);
 
     $config = [
         'SYSTEM_NAME' => trim($_POST['system_name'] ?? 'intraRP'),
@@ -173,6 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         'ENOTF_PREREG' => isset($_POST['enotf_prereg']) ? 'true' : 'false',
         'ENOTF_USE_PIN' => $enotfUsePin ? 'true' : 'false',
         'ENOTF_PIN' => $enotfUsePin ? $enotfPin : '',
+        'ENOTF_REQUIRE_USER_AUTH' => $enotfRequireUserAuth ? 'true' : 'false',
         'REGISTRATION_MODE' => trim($_POST['registration_mode'] ?? 'open'),
         'BASE_PATH' => trim($_POST['base_path'] ?? '/'),
         'API_KEY' => $apiKey,
@@ -263,6 +265,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         $configContent .= "define('ENOTF_PREREG', {$config['ENOTF_PREREG']});\n";
         $configContent .= "define('ENOTF_USE_PIN', {$config['ENOTF_USE_PIN']});\n";
         $configContent .= "define('ENOTF_PIN', '{$config['ENOTF_PIN']}');\n";
+        $configContent .= "// Wird eine Registrierung/Anmeldung im Hauptsystem für den Zugang zum eNOTF vorausgesetzt? (true = ja, false = nein)\n";
+        $configContent .= "define('ENOTF_REQUIRE_USER_AUTH', {$config['ENOTF_REQUIRE_USER_AUTH']});\n";
         $configContent .= "define('REGISTRATION_MODE', '{$config['REGISTRATION_MODE']}');\n";
         $configContent .= "define('LANG', 'de');\n";
         $configContent .= "define('BASE_PATH', '{$config['BASE_PATH']}');";
@@ -406,7 +410,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
             min-height: 100vh;
             padding: 20px;
         }
@@ -415,8 +419,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
             max-width: 800px;
             margin: 0 auto;
             background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             overflow: hidden;
         }
 
@@ -478,6 +482,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
             color: #666;
             margin-top: 5px;
             font-size: 0.9em;
+        }
+
+        .form-group small.indented {
+            margin-left: 30px;
         }
 
         .form-group code {
@@ -1081,6 +1089,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
                     </div>
                 </div>
 
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="enotf_require_user_auth" name="enotf_require_user_auth">
+                        <label for="enotf_require_user_auth">Benutzerauthentifizierung für eNOTF erforderlich</label>
+                    </div>
+                    <small class="indented">Wird eine Registrierung/Anmeldung im Hauptsystem für den Zugang zum eNOTF vorausgesetzt?</small>
+                </div>
+
                 <script>
                     const pinCheckbox = document.getElementById('enotf_use_pin');
                     const pinWrapper = document.getElementById('pin_input_wrapper');
@@ -1145,7 +1161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
                 <div class="info-box">
                     <strong>ℹ️ Discord Applikation benötigt</strong>
                     Für die Discord-Integration muss eine Discord-Applikation erstellt werden. Eine detaillierte Anleitung finden Sie hier:
-                    <a href="https://docs.intrarp.de/intrarp/discord-applikation-erstellen" target="_blank" style="color: #1976d2; font-weight: 600;">Discord-Applikation erstellen →</a>
+                    <a href="https://emergencyforge.de/wiki.html#discord-app-erstellen" target="_blank" style="color: #1976d2; font-weight: 600;">Discord-Applikation erstellen →</a>
                 </div>
 
                 <div class="form-group">
