@@ -265,7 +265,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         $configContent .= "define('ENOTF_PREREG', {$config['ENOTF_PREREG']});\n";
         $configContent .= "define('ENOTF_USE_PIN', {$config['ENOTF_USE_PIN']});\n";
         $configContent .= "define('ENOTF_PIN', '{$config['ENOTF_PIN']}');\n";
-        $configContent .= "define('ENOTF_REQUIRE_USER_AUTH', {$config['ENOTF_REQUIRE_USER_AUTH']}); // Wird eine Registrierung/Anmeldung im Hauptsystem für den Zugang zum eNOTF vorausgesetzt? (true = ja, false = nein)\n";
+        $configContent .= "// Wird eine Registrierung/Anmeldung im Hauptsystem für den Zugang zum eNOTF vorausgesetzt? (true = ja, false = nein)\n";
+        $configContent .= "define('ENOTF_REQUIRE_USER_AUTH', {$config['ENOTF_REQUIRE_USER_AUTH']});\n";
         $configContent .= "define('REGISTRATION_MODE', '{$config['REGISTRATION_MODE']}');\n";
         $configContent .= "define('LANG', 'de');\n";
         $configContent .= "define('BASE_PATH', '{$config['BASE_PATH']}');";
