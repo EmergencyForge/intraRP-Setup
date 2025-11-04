@@ -45,8 +45,6 @@ if (isset($_GET['composer_confirmed']) && $_GET['composer_confirmed'] === '1') {
     exit;
 }
 
-
-
 $errors = [];
 $success = [];
 $canProceed = $phpVersionOk && $gitAvailable;
@@ -143,13 +141,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         }
     }
 
+    // Sanitize environment variables to prevent injection attacks
+    // Remove newlines and carriage returns that could break .env file format
+    function sanitizeEnvValue($value) {
+        // Remove any newline characters
+        $value = str_replace(["\r", "\n"], '', $value);
+        // Trim whitespace
+        $value = trim($value);
+        return $value;
+    }
+
     $envConfig = [
-        'DB_HOST' => trim($_POST['db_host'] ?? 'localhost'),
-        'DB_USER' => trim($_POST['db_user'] ?? 'root'),
-        'DB_PASS' => trim($_POST['db_pass'] ?? ''),
-        'DB_NAME' => trim($_POST['db_name'] ?? 'intrarp'),
-        'DISCORD_CLIENT_ID' => trim($_POST['discord_client_id'] ?? ''),
-        'DISCORD_CLIENT_SECRET' => trim($_POST['discord_client_secret'] ?? ''),
+        'DB_HOST' => sanitizeEnvValue($_POST['db_host'] ?? 'localhost'),
+        'DB_USER' => sanitizeEnvValue($_POST['db_user'] ?? 'root'),
+        'DB_PASS' => sanitizeEnvValue($_POST['db_pass'] ?? ''),
+        'DB_NAME' => sanitizeEnvValue($_POST['db_name'] ?? 'intrarp'),
+        'DISCORD_CLIENT_ID' => sanitizeEnvValue($_POST['discord_client_id'] ?? ''),
+        'DISCORD_CLIENT_SECRET' => sanitizeEnvValue($_POST['discord_client_secret'] ?? ''),
     ];
 
     if (empty($envConfig['DB_NAME'])) {
@@ -934,7 +942,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
 
                 <div class="info-box">
                     <strong>ℹ️ Hinweis:</strong>
-                    Alle hier eingegebenen Werte können später in der Datei <code>/.env</code> manuell angepasst werden. Die Konfiguration des Systems erfolgt nach dem Setup über die Datenbank.
+                    Die hier eingegebenen Datenbank- und Discord-Credentials werden in der <code>/.env</code> Datei gespeichert und können später dort angepasst werden. Alle weiteren System-Einstellungen (z.B. System-Name, Farben, Server-Informationen) werden nach dem Setup über das Admin-Panel in der Datenbank konfiguriert.
                 </div>
 
                 <button type="submit" class="btn" <?php echo !$canProceed ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''; ?>>Setup durchführen</button>
