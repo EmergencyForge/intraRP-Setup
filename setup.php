@@ -483,6 +483,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
             font-size: 0.9em;
         }
 
+        .form-group small.indented {
+            margin-left: 30px;
+        }
+
         .form-group code {
             background: #f5f5f5;
             padding: 2px 6px;
@@ -1089,7 +1093,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
                         <input type="checkbox" id="enotf_require_user_auth" name="enotf_require_user_auth">
                         <label for="enotf_require_user_auth">Benutzerauthentifizierung für eNOTF erforderlich</label>
                     </div>
-                    <small style="margin-left: 30px; margin-top: 5px; display: block;">Wird eine Registrierung/Anmeldung im Hauptsystem für den Zugang zum eNOTF vorausgesetzt?</small>
+                    <small class="indented">Wird eine Registrierung/Anmeldung im Hauptsystem für den Zugang zum eNOTF vorausgesetzt?</small>
                 </div>
 
                 <script>
