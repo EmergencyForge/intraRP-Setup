@@ -141,14 +141,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
         }
     }
 
-    // Sanitize environment variables to prevent injection attacks
-    // Remove newlines and carriage returns that could break .env file format
+    // Sanitize and escape environment variables to prevent injection attacks
+    // Follows .env file format standards with proper quoting
     function sanitizeEnvValue($value) {
-        // Remove any newline characters
+        // Remove any newline characters that could break .env file format
         $value = str_replace(["\r", "\n"], '', $value);
         // Trim whitespace
         $value = trim($value);
         return $value;
+    }
+
+    // Format value for .env file with proper quoting and escaping
+    function formatEnvValue($value) {
+        // Sanitize first
+        $value = sanitizeEnvValue($value);
+        // Escape backslashes and double quotes
+        $value = str_replace(['\\', '"'], ['\\\\', '\\"'], $value);
+        // Wrap in double quotes for safety
+        return '"' . $value . '"';
     }
 
     $envConfig = [
@@ -179,12 +189,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canProceed) {
 
     if (empty($errors)) {
 
-        $envContent = "DB_HOST={$envConfig['DB_HOST']}\n";
-        $envContent .= "DB_USER={$envConfig['DB_USER']}\n";
-        $envContent .= "DB_PASS={$envConfig['DB_PASS']}\n";
-        $envContent .= "DB_NAME={$envConfig['DB_NAME']}\n\n";
-        $envContent .= "DISCORD_CLIENT_ID={$envConfig['DISCORD_CLIENT_ID']}\n";
-        $envContent .= "DISCORD_CLIENT_SECRET={$envConfig['DISCORD_CLIENT_SECRET']}";
+        $envContent = "DB_HOST=" . formatEnvValue($envConfig['DB_HOST']) . "\n";
+        $envContent .= "DB_USER=" . formatEnvValue($envConfig['DB_USER']) . "\n";
+        $envContent .= "DB_PASS=" . formatEnvValue($envConfig['DB_PASS']) . "\n";
+        $envContent .= "DB_NAME=" . formatEnvValue($envConfig['DB_NAME']) . "\n\n";
+        $envContent .= "DISCORD_CLIENT_ID=" . formatEnvValue($envConfig['DISCORD_CLIENT_ID']) . "\n";
+        $envContent .= "DISCORD_CLIENT_SECRET=" . formatEnvValue($envConfig['DISCORD_CLIENT_SECRET']);
 
         if (file_put_contents('.env', $envContent)) {
             $success[] = '.env Datei erfolgreich erstellt!';
